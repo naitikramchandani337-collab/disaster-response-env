@@ -37,7 +37,7 @@ Thumbs.db
 *.log
 
 # uv / pip
-uv.lock
+# uv.lock is required by the OpenEnv validator — do not ignore
 pip-wheel-metadata/
 
 # Docker
