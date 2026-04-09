@@ -21,11 +21,26 @@ tags:
   - openenv
 
 endpoints:
-  reset:  POST /reset
-  step:   POST /step
-  state:  GET  /state/{session_id}
-  health: GET  /health
-  tasks:  GET  /tasks
+  reset:
+    method: POST
+    path: /reset
+    description: "Start new episode, returns observation + session_id"
+  step:
+    method: POST
+    path: /step
+    description: "Apply action, returns StepResponse"
+  state:
+    method: GET
+    path: /state/{session_id}
+    description: "Return full internal state"
+  health:
+    method: GET
+    path: /health
+    description: "Health check"
+  tasks:
+    method: GET
+    path: /tasks
+    description: "List all available tasks"
 
 observation_space:
   type: object
@@ -149,7 +164,7 @@ environment:
   multi_step:            true
   partial_observability: false
   reward_type:           dense
-  episode_horizon:       [5, 8, 12]
+  episode_horizon_max: 12
 
 infrastructure:
   framework:    FastAPI

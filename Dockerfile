@@ -1,20 +1,25 @@
 FROM python:3.11-slim
 
-WORKDIR /app
-
+# ISSUE 3 fix — non-root user required by HF Spaces
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1000 appuser
+
+WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all application files
-COPY app/       ./app/
-COPY server/    ./server/
-COPY openenv.yaml .
-COPY inference.py .
+COPY app/               ./app/
+COPY server/            ./server/
+COPY openenv.yaml       .
+COPY inference.py       .
 COPY baseline_results.json .
-COPY README.md .
+COPY README.md          .
+
+RUN chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 7860
 

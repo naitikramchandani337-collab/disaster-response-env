@@ -1,17 +1,16 @@
 import sys
 import os
 
-# Ensure root is on path so `app.*` imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Optional, Any
 import uuid
 
 from app.models import Action, StepResponse, StateResponse
-from app.environment import DisasterResponseEnv
+from app.environment import DisasterResponseEnv, TTLSessionStore
 from app.tasks import TASKS
 
 app = FastAPI(
@@ -23,11 +22,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
 
-# In-memory session store
-_sessions: Dict[str, DisasterResponseEnv] = {}
+# ISSUE 4 fix — bounded TTL session store, no unbounded dict
+_sessions = TTLSessionStore(maxsize=100, ttl=3600)
 
 
 class ResetRequest(BaseModel):
@@ -50,29 +49,39 @@ def health():
 def list_tasks():
     return {
         tid: {
-            "name":         t.name,
-            "difficulty":   t.difficulty,
-            "max_steps":    t.max_steps,
+            "name":          t.name,
+            "difficulty":    t.difficulty,
+            "max_steps":     t.max_steps,
             "disaster_type": t.disaster_type.value,
-            "description":  t.description,
-            "num_zones":    len(t.zones),
+            "description":   t.description,
+            "num_zones":     len(t.zones),
         }
         for tid, t in TASKS.items()
     }
 
 
 @app.post("/reset")
-def reset(req: ResetRequest = None):
-    """Reset (or create) an episode. Returns initial observation + session_id."""
+def reset(req: ResetRequest = None, response: Response = None):
+    """
+    Reset (or create) an episode.
+    BUG 1 fix: session_id is returned BOTH in the JSON body AND as a header.
+    """
     if req is None:
         req = ResetRequest()
     session_id = req.session_id or str(uuid.uuid4())
     env = DisasterResponseEnv(task_id=req.task_id, seed=req.seed)
     obs = env.reset()
-    _sessions[session_id] = env
+    _sessions.set(session_id, env)
+
+    # BUG 1 fix — inject into header AND body
+    if response is not None:
+        response.headers["X-Session-Id"] = session_id
+
+    obs_dict = obs.model_dump()          # ISSUE 8 fix — model_dump() not dict()
+    obs_dict["session_id"] = session_id  # also embed in observation body
     return {
         "session_id":  session_id,
-        "observation": obs.dict(),
+        "observation": obs_dict,
     }
 
 
@@ -83,7 +92,7 @@ def step(req: StepRequest):
     if env is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Session '{req.session_id}' not found. Call /reset first."
+            detail=f"Session '{req.session_id}' not found. Call /reset first.",
         )
     try:
         action = Action(**{k: v for k, v in req.action.items() if k in Action.model_fields})
@@ -92,21 +101,19 @@ def step(req: StepRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid action: {e}")
-    return result.dict()
+    return result.model_dump()           # ISSUE 8 fix
 
 
 @app.get("/state/{session_id}")
 def state(session_id: str):
-    """Return full current state for a session."""
     env = _sessions.get(session_id)
     if env is None:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
-    return env.state().dict()
+    return env.state().model_dump()      # ISSUE 8 fix
 
 
 @app.get("/grade/{session_id}")
 def grade(session_id: str):
-    """Return current grader score for a session."""
     env = _sessions.get(session_id)
     if env is None:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
@@ -121,7 +128,7 @@ def grade(session_id: str):
 
 @app.delete("/session/{session_id}")
 def delete_session(session_id: str):
-    _sessions.pop(session_id, None)
+    _sessions.delete(session_id)
     return {"deleted": session_id}
 
 

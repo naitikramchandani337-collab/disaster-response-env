@@ -113,17 +113,31 @@ def env_reset(task_id: str, seed: int = SEED):
     r = requests.post(f"{BASE}/reset", json={"task_id": task_id, "seed": seed}, timeout=30)
     r.raise_for_status()
     data = r.json()
-    return data["observation"], data["session_id"]
-
-
-def env_step(session_id: str, action: Dict) -> Dict:
-    r = requests.post(
-        f"{BASE}/step",
-        json={"session_id": session_id, "action": action},
-        timeout=30,
+    # ISSUE 2 fix — read session_id from body (most reliable after BUG 1 fix)
+    session_id = (
+        data.get("session_id")
+        or r.headers.get("X-Session-Id")
     )
-    r.raise_for_status()
-    return r.json()
+    if not session_id:
+        raise RuntimeError("No session_id returned from /reset")
+    return data["observation"], session_id
+
+
+def env_step(session_id: str, action: Dict, retries: int = 3) -> Dict:
+    # ISSUE 6 fix — retry with exponential backoff on transient errors
+    for attempt in range(retries):
+        try:
+            r = requests.post(
+                f"{BASE}/step",
+                json={"session_id": session_id, "action": action},
+                timeout=30,
+            )
+            r.raise_for_status()
+            return r.json()
+        except requests.HTTPError as e:
+            if attempt == retries - 1:
+                raise
+            time.sleep(2 ** attempt)
 
 
 def env_grade(session_id: str) -> float:
