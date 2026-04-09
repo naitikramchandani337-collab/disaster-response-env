@@ -12,7 +12,7 @@ description: >
 author: "OpenEnv Submission"
 license: "MIT"
 entry_point: "server.app:app"
-homepage: "https://huggingface.co/spaces/KHUSHIiiiiiii/disaster_management_openenv"
+homepage: "https://KHUSHIiiiiiii-disaster-management-openenv.hf.space"
 tags:
   - disaster-response
   - emergency-management
