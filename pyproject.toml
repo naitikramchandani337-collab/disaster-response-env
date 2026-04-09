@@ -34,7 +34,7 @@ dependencies = [
 server = "server.app:main"
 
 [project.urls]
-Homepage = "https://huggingface.co/spaces/YOUR_USERNAME/disaster-response-env"
+Homepage = "https://huggingface.co/spaces/naitikramchandani337/disaster-response-env"
 
 [tool.setuptools.packages.find]
 where = ["."]

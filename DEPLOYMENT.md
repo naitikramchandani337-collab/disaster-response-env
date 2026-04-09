@@ -16,7 +16,7 @@
 
 ```bash
 # Clone your new Space repo
-git clone https://huggingface.co/spaces/YOUR_USERNAME/disaster-response-env
+git clone https://huggingface.co/spaces/naitikramchandani337/disaster-response-env
 cd disaster-response-env
 
 # Copy all project files
@@ -50,7 +50,7 @@ In your Space settings (Settings → Variables and secrets):
 Once the Space shows "Running":
 
 ```bash
-SPACE_URL="https://YOUR_USERNAME-disaster-response-env.hf.space"
+SPACE_URL="https://naitikramchandani337-disaster-response-env.hf.space"
 
 # Health check
 curl $SPACE_URL/health

@@ -4,7 +4,7 @@
 
 ### HF Space
 - [ ] Space created and set to **Public**
-- [ ] Space URL responds: `curl https://YOUR_USERNAME-disaster-response-env.hf.space/health`
+- [ ] Space URL responds: `curl https://naitikramchandani337-disaster-response-env.hf.space/health`
 - [ ] `POST /reset` with `{}` returns HTTP 200
 
 ### OpenEnv Spec

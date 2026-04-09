@@ -14,15 +14,17 @@ from app.environment import DisasterResponseEnv, TTLSessionStore
 from app.tasks import TASKS
 
 app = FastAPI(
-    title       = "Disaster Response OpenEnv",
-    description = "OpenEnv-compliant Disaster Response Simulation",
-    version     = "1.0.0",
-    docs_url    = "/docs",
+    title="Disaster Response OpenEnv",
+    description="OpenEnv-compliant Disaster Response Simulation",
+    version="1.0.0",
+    docs_url="/docs",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ISSUE 4 fix — bounded TTL session store, no unbounded dict
@@ -30,14 +32,14 @@ _sessions = TTLSessionStore(maxsize=100, ttl=3600)
 
 
 class ResetRequest(BaseModel):
-    task_id:    str = "task_1_earthquake"
-    seed:       int = 42
+    task_id: str = "task_1_earthquake"
+    seed: int = 42
     session_id: Optional[str] = None
 
 
 class StepRequest(BaseModel):
     session_id: str
-    action:     Dict[str, Any]
+    action: Dict[str, Any]
 
 
 @app.get("/health")
@@ -49,12 +51,12 @@ def health():
 def list_tasks():
     return {
         tid: {
-            "name":          t.name,
-            "difficulty":    t.difficulty,
-            "max_steps":     t.max_steps,
+            "name": t.name,
+            "difficulty": t.difficulty,
+            "max_steps": t.max_steps,
             "disaster_type": t.disaster_type.value,
-            "description":   t.description,
-            "num_zones":     len(t.zones),
+            "description": t.description,
+            "num_zones": len(t.zones),
         }
         for tid, t in TASKS.items()
     }
@@ -77,10 +79,10 @@ def reset(req: ResetRequest = None, response: Response = None):
     if response is not None:
         response.headers["X-Session-Id"] = session_id
 
-    obs_dict = obs.model_dump()          # ISSUE 8 fix — model_dump() not dict()
+    obs_dict = obs.model_dump()  # ISSUE 8 fix — model_dump() not dict()
     obs_dict["session_id"] = session_id  # also embed in observation body
     return {
-        "session_id":  session_id,
+        "session_id": session_id,
         "observation": obs_dict,
     }
 
@@ -95,34 +97,40 @@ def step(req: StepRequest):
             detail=f"Session '{req.session_id}' not found. Call /reset first.",
         )
     try:
-        action = Action(**{k: v for k, v in req.action.items() if k in Action.model_fields})
+        action = Action(
+            **{k: v for k, v in req.action.items() if k in Action.model_fields}
+        )
         result = env.step(action)
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid action: {e}")
-    return result.model_dump()           # ISSUE 8 fix
+    return result.model_dump()  # ISSUE 8 fix
 
 
 @app.get("/state/{session_id}")
 def state(session_id: str):
     env = _sessions.get(session_id)
     if env is None:
-        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
-    return env.state().model_dump()      # ISSUE 8 fix
+        raise HTTPException(
+            status_code=404, detail=f"Session '{session_id}' not found."
+        )
+    return env.state().model_dump()  # ISSUE 8 fix
 
 
 @app.get("/grade/{session_id}")
 def grade(session_id: str):
     env = _sessions.get(session_id)
     if env is None:
-        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Session '{session_id}' not found."
+        )
     st = env.state()
     return {
-        "session_id":   session_id,
-        "task_id":      env.task_id,
+        "session_id": session_id,
+        "task_id": env.task_id,
         "grader_score": st.grader_score,
-        "step":         env._time_step,
+        "step": env._time_step,
     }
 
 
@@ -134,6 +142,7 @@ def delete_session(session_id: str):
 
 def main():
     import uvicorn
+
     port = int(os.environ.get("PORT", 7860))
     uvicorn.run(app, host="0.0.0.0", port=port)
 

@@ -7,7 +7,9 @@ Run this before deploying to confirm everything works:
 
 All tests must pass before submitting.
 """
+
 import sys
+import copy
 import logging
 from pathlib import Path
 
@@ -18,10 +20,18 @@ logger = logging.getLogger(__name__)
 def test_files_exist():
     """All required files are present."""
     required = [
-        "inference.py", "openenv.yaml", "Dockerfile",
-        "requirements.txt", "README.md", "baseline_results.json",
-        "app/__init__.py", "app/models.py", "app/tasks.py", "app/environment.py",
-        "server/__init__.py", "server/app.py",
+        "inference.py",
+        "openenv.yaml",
+        "Dockerfile",
+        "requirements.txt",
+        "README.md",
+        "baseline_results.json",
+        "app/__init__.py",
+        "app/models.py",
+        "app/tasks.py",
+        "app/environment.py",
+        "server/__init__.py",
+        "server/app.py",
     ]
     missing = [f for f in required if not Path(f).exists()]
     if missing:
@@ -35,8 +45,16 @@ def test_openenv_yaml():
     """openenv.yaml is valid and has all required fields."""
     try:
         import yaml
+
         doc = yaml.safe_load(Path("openenv.yaml").read_text())
-        required = ["name", "version", "description", "tasks", "observation_space", "action_space"]
+        required = [
+            "name",
+            "version",
+            "description",
+            "tasks",
+            "observation_space",
+            "action_space",
+        ]
         missing = [f for f in required if f not in doc]
         if missing:
             logger.error("openenv.yaml missing fields: %s", ", ".join(missing))
@@ -60,13 +78,20 @@ def test_imports():
     """All modules import without error."""
     try:
         from app.models import (
-            Observation, Action, Reward, StepResponse,
-            StateResponse, ZoneState, ResourcePool,
-            DisasterType, ZoneSeverity,
+            Observation,
+            Action,
+            Reward,
+            StepResponse,
+            StateResponse,
+            ZoneState,
+            ResourcePool,
+            DisasterType,
+            ZoneSeverity,
         )
         from app.tasks import TASKS, grade_task
         from app.environment import DisasterResponseEnv
         from openai import OpenAI
+
         logger.info("[OK] All imports successful")
         return True
     except ImportError as e:
@@ -78,6 +103,7 @@ def test_env_init():
     """All 3 task environments initialise cleanly."""
     try:
         from app.environment import DisasterResponseEnv
+
         for tid in ["task_1_earthquake", "task_2_flood", "task_3_multi_disaster"]:
             env = DisasterResponseEnv(task_id=tid, seed=42)
             logger.info("  [OK] DisasterResponseEnv(%s)", tid)
@@ -92,13 +118,14 @@ def test_reset():
     try:
         from app.environment import DisasterResponseEnv
         from app.models import Observation
+
         env = DisasterResponseEnv("task_1_earthquake", seed=42)
         obs = env.reset()
         assert isinstance(obs, Observation), "reset() must return Observation"
-        assert obs.time_step == 0,           "time_step must be 0 after reset"
-        assert obs.total_rescued == 0,       "total_rescued must be 0 after reset"
-        assert obs.done is False,            "done must be False after reset"
-        assert len(obs.zones) == 3,          "task_1 must have 3 zones"
+        assert obs.time_step == 0, "time_step must be 0 after reset"
+        assert obs.total_rescued == 0, "total_rescued must be 0 after reset"
+        assert obs.done is False, "done must be False after reset"
+        assert len(obs.zones) == 3, "task_1 must have 3 zones"
         logger.info("[OK] reset() returns clean Observation")
         return True
     except Exception as e:
@@ -111,14 +138,15 @@ def test_step():
     try:
         from app.environment import DisasterResponseEnv
         from app.models import Action, StepResponse
+
         env = DisasterResponseEnv("task_1_earthquake", seed=42)
         env.reset()
         action = Action(action_type="allocate_search_rescue", zone_id="Z1", units=4)
         resp = env.step(action)
-        assert isinstance(resp, StepResponse),          "step() must return StepResponse"
-        assert isinstance(resp.done, bool),              "done must be bool"
-        assert -1.0 <= resp.reward.total <= 1.0,         "reward.total must be in [-1, 1]"
-        assert resp.observation.time_step == 1,          "time_step must advance"
+        assert isinstance(resp, StepResponse), "step() must return StepResponse"
+        assert isinstance(resp.done, bool), "done must be bool"
+        assert -1.0 <= resp.reward.total <= 1.0, "reward.total must be in [-1, 1]"
+        assert resp.observation.time_step == 1, "time_step must advance"
         logger.info("[OK] step() returns StepResponse, reward=%.4f", resp.reward.total)
         return True
     except Exception as e:
@@ -131,14 +159,17 @@ def test_state():
     try:
         from app.environment import DisasterResponseEnv
         from app.models import Action, StateResponse
+
         env = DisasterResponseEnv("task_1_earthquake", seed=42)
         env.reset()
         env.step(Action(action_type="allocate_search_rescue", zone_id="Z1", units=4))
         st = env.state()
-        assert isinstance(st, StateResponse),        "state() must return StateResponse"
-        assert 0.0 <= st.grader_score <= 1.0,        "grader_score must be in [0, 1]"
-        assert "task_id" in st.task_metadata,        "task_metadata must have task_id"
-        logger.info("[OK] state() returns StateResponse, grader_score=%.4f", st.grader_score)
+        assert isinstance(st, StateResponse), "state() must return StateResponse"
+        assert 0.0 <= st.grader_score <= 1.0, "grader_score must be in [0, 1]"
+        assert "task_id" in st.task_metadata, "task_metadata must have task_id"
+        logger.info(
+            "[OK] state() returns StateResponse, grader_score=%.4f", st.grader_score
+        )
         return True
     except Exception as e:
         logger.error("state() failed: %s", e)
@@ -158,16 +189,21 @@ def test_graders():
             for _ in range(2):
                 env = DisasterResponseEnv(tid, seed=42)
                 env.reset()
-                env.step(Action(
-                    action_type="allocate_search_rescue",
-                    zone_id=TASKS[tid].zones[0].zone_id,
-                    units=3,
-                ))
-                s = grade_task(tid, {
-                    "zones":           env._zones,
-                    "resources_used":  env._resources_used,
-                    "resources_total": env._resources_total,
-                })
+                env.step(
+                    Action(
+                        action_type="allocate_search_rescue",
+                        zone_id=TASKS[tid].zones[0].zone_id,
+                        units=3,
+                    )
+                )
+                s = grade_task(
+                    tid,
+                    {
+                        "zones": copy.deepcopy(env._zones),
+                        "resources_used": env._resources_used,
+                        "resources_total": env._resources_total,
+                    },
+                )
                 assert 0.0 <= s <= 1.0, "score must be in [0, 1]"
                 scores.append(s)
             assert scores[0] == scores[1], "grader must be deterministic"
@@ -205,10 +241,17 @@ def test_server_endpoints():
         sid = data["session_id"]
 
         # /step
-        r = client.post("/step", json={
-            "session_id": sid,
-            "action": {"action_type": "allocate_search_rescue", "zone_id": "Z1", "units": 3},
-        })
+        r = client.post(
+            "/step",
+            json={
+                "session_id": sid,
+                "action": {
+                    "action_type": "allocate_search_rescue",
+                    "zone_id": "Z1",
+                    "units": 3,
+                },
+            },
+        )
         assert r.status_code == 200
         sd = r.json()
         assert all(k in sd for k in ["observation", "reward", "done", "info"])
@@ -236,19 +279,20 @@ def test_inference_format():
     try:
         src = Path("inference.py").read_text()
         checks = {
-            "[START] task= env= model=":   "[START] task={task} env={env} model={model}" in src,
-            "[STEP] step= action= reward= done= error=":
-                "[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}" in src,
-            "[END] success= steps= score= rewards=":
-                "[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}" in src,
-            "reward is 2dp":               "reward:.2f" in src,
-            "score is 2dp":                "score:.2f" in src,
-            "done is lowercase bool":      "str(done).lower()" in src,
-            "success is lowercase bool":   "str(success).lower()" in src,
-            "rewards is comma list":       '",".join(f"{r:.2f}" for r in rewards)' in src,
-            "HF_TOKEN supported":          "HF_TOKEN" in src,
-            "OPENAI_API_KEY supported":    "OPENAI_API_KEY" in src,
-            "server self-start":           "ensure_server_running" in src,
+            "[START] task= env= model=": "[START] task={task} env={env} model={model}"
+            in src,
+            "[STEP] step= action= reward= done= error=": "[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}"
+            in src,
+            "[END] success= steps= score= rewards=": "[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}"
+            in src,
+            "reward is 2dp": "reward:.2f" in src,
+            "score is 2dp": "score:.2f" in src,
+            "done is lowercase bool": "str(done).lower()" in src,
+            "success is lowercase bool": "str(success).lower()" in src,
+            "rewards is comma list": '",".join(f"{r:.2f}" for r in rewards)' in src,
+            "HF_TOKEN supported": "HF_TOKEN" in src,
+            "OPENAI_API_KEY supported": "OPENAI_API_KEY" in src,
+            "server self-start": "ensure_server_running" in src,
         }
         failed = [k for k, v in checks.items() if not v]
         if failed:
@@ -269,16 +313,16 @@ def main():
     print()
 
     tests = [
-        ("File Structure",        test_files_exist),
-        ("openenv.yaml",          test_openenv_yaml),
-        ("Imports",               test_imports),
-        ("Environment Init",      test_env_init),
-        ("reset()",               test_reset),
-        ("step()",                test_step),
-        ("state()",               test_state),
-        ("Graders (3 tasks)",     test_graders),
-        ("Server Endpoints",      test_server_endpoints),
-        ("inference.py Format",   test_inference_format),
+        ("File Structure", test_files_exist),
+        ("openenv.yaml", test_openenv_yaml),
+        ("Imports", test_imports),
+        ("Environment Init", test_env_init),
+        ("reset()", test_reset),
+        ("step()", test_step),
+        ("state()", test_state),
+        ("Graders (3 tasks)", test_graders),
+        ("Server Endpoints", test_server_endpoints),
+        ("inference.py Format", test_inference_format),
     ]
 
     results = []
