@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env
+
+# Environment variables
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# uv / pip
+uv.lock
+pip-wheel-metadata/
+
+# Docker
+.dockerignore
+
+# Reference projects (cloned for analysis, not part of submission)
+medical-triage-env/
+
+# Temp / audit scripts
+_audit.py
+_fmt_check.py
+_validator_sim.py

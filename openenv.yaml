@@ -1,0 +1,165 @@
+name: disaster-response-env
+version: "1.0.0"
+display_name: "Disaster Response System"
+description: >
+  A real-world simulation of emergency disaster response operations.
+  Agents must allocate scarce rescue resources (search-and-rescue teams,
+  medical units, firefighting crews, water rescue boats) across disaster
+  zones under time pressure. Scenarios include urban earthquakes, flash
+  floods, wildfires, and compound multi-disaster events.
+  Used by: emergency management agencies, FEMA training, disaster AI research.
+
+author: "OpenEnv Submission"
+license: "MIT"
+entry_point: "server.app:app"
+homepage: "https://huggingface.co/spaces/YOUR_USERNAME/disaster-response-env"
+tags:
+  - disaster-response
+  - emergency-management
+  - resource-allocation
+  - real-world
+  - openenv
+
+endpoints:
+  reset:  POST /reset
+  step:   POST /step
+  state:  GET  /state/{session_id}
+  health: GET  /health
+  tasks:  GET  /tasks
+
+observation_space:
+  type: object
+  schema: app.models.Observation
+  fields:
+    task_id:               {type: string}
+    disaster_scenario:     {type: string}
+    disaster_type:         {type: string, enum: [earthquake, flood, fire, multi]}
+    time_step:             {type: integer, min: 0}
+    max_steps:             {type: integer}
+    zones:
+      type: array
+      items:
+        type: object
+        fields:
+          zone_id:             string
+          name:                string
+          disaster_type:       string
+          severity:            {enum: [none, low, medium, high, critical]}
+          population:          integer
+          trapped_casualties:  integer
+          injured:             integer
+          rescued:             integer
+          fatalities:          integer
+          search_rescue_teams: integer
+          medical_teams:       integer
+          firefighting_units:  integer
+          water_rescue_teams:  integer
+          is_evacuated:        boolean
+          is_prioritized:      boolean
+          turns_unattended:    integer
+          accessibility:       {type: float, min: 0.0, max: 1.0}
+    available_resources:
+      type: object
+      fields:
+        search_rescue_teams: integer
+        medical_teams:       integer
+        firefighting_units:  integer
+        water_rescue_teams:  integer
+        evacuation_vehicles: integer
+    total_rescued:           integer
+    total_fatalities:        integer
+    total_injured_treated:   integer
+    cumulative_reward:       float
+    active_disaster_zones:   {type: array, items: string}
+    prioritized_zones:       {type: array, items: string}
+    last_action_feedback:    string
+    done:                    boolean
+
+action_space:
+  type: object
+  schema: app.models.Action
+  fields:
+    action_type:
+      type: string
+      enum:
+        - allocate_search_rescue
+        - allocate_medical
+        - allocate_firefighting
+        - allocate_water_rescue
+        - evacuate_zone
+        - prioritize_zone
+        - standby
+    zone_id:
+      type: string
+      description: "Target zone ID (e.g. Z1, Z2, ...)"
+    units:
+      type: integer
+      min: 0
+      max: 20
+    reasoning:
+      type: string
+      description: "Optional agent chain-of-thought"
+
+reward_space:
+  schema: app.models.Reward
+  range: [-1.0, 1.0]
+  components:
+    lives_saved_bonus:    "Reward for rescuing trapped casualties (severity-weighted)"
+    resource_efficiency:  "Bonus for effective resource utilization"
+    response_time_bonus:  "Decaying bonus for acting quickly"
+    unattended_penalty:   "Penalty for leaving critical zones unattended"
+    waste_penalty:        "Penalty for mismatched resource allocation"
+    evacuation_bonus:     "Bonus for successful zone evacuations"
+
+tasks:
+  - id: task_1_earthquake
+    name: "Urban Earthquake Response"
+    difficulty: easy
+    max_steps: 5
+    zones: 3
+    disaster_type: earthquake
+    grader: app.tasks.grade_task
+    score_range: [0.0, 1.0]
+    target_score: 0.70
+
+  - id: task_2_flood
+    name: "Regional Flash Flood Response"
+    difficulty: medium
+    max_steps: 8
+    zones: 5
+    disaster_type: flood
+    grader: app.tasks.grade_task
+    score_range: [0.0, 1.0]
+    target_score: 0.65
+
+  - id: task_3_multi_disaster
+    name: "Compound Disaster: Earthquake + Wildfire + Flood"
+    difficulty: hard
+    max_steps: 12
+    zones: 8
+    disaster_type: multi
+    grader: app.tasks.grade_task
+    score_range: [0.0, 1.0]
+    target_score: 0.60
+
+environment:
+  stateful:              true
+  episodic:              true
+  deterministic:         true
+  multi_step:            true
+  partial_observability: false
+  reward_type:           dense
+  episode_horizon:       [5, 8, 12]
+
+infrastructure:
+  framework:    FastAPI
+  port:         7860
+  health_check: GET /health
+  docker:       true
+  hf_space:     true
+
+constraints:
+  max_vcpu: 2
+  max_memory_gb: 8
+  inference_time_limit_seconds: 1200
+  episode_timeout_seconds: 120

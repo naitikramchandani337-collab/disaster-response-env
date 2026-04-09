@@ -1,0 +1,30 @@
+{
+  "task_1_earthquake": {
+    "score": 0.7461,
+    "grade": "B",
+    "total_rescued": 35,
+    "total_fatalities": 11,
+    "difficulty": "easy",
+    "target_score": 0.70
+  },
+  "task_2_flood": {
+    "score": 0.6063,
+    "grade": "C",
+    "total_rescued": 30,
+    "total_fatalities": 44,
+    "difficulty": "medium",
+    "target_score": 0.65
+  },
+  "task_3_multi_disaster": {
+    "score": 0.5569,
+    "grade": "C",
+    "total_rescued": 36,
+    "total_fatalities": 104,
+    "difficulty": "hard",
+    "target_score": 0.60
+  },
+  "average_score": 0.6364,
+  "model": "Qwen/Qwen2.5-72B-Instruct",
+  "seed": 42,
+  "note": "Baseline scores from deterministic greedy agent. LLM agent expected to score higher."
+}
