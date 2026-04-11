@@ -5,7 +5,7 @@ inference.py — Baseline inference script for Disaster Response OpenEnv
 Mandatory stdout format (must match exactly):
   [START] task=<task_name> env=<benchmark> model=<model_name>
   [STEP]  step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
-  [END]   success=<true|false> steps=<n> score=<0.00> rewards=<r1,r2,...,rn>
+  [END]   success=<true|false> steps=<n> rewards=<r1,r2,...,rn>
 
 Reads: API_BASE_URL, MODEL_NAME, HF_TOKEN (also accepts OPENAI_API_KEY)
 """
@@ -54,10 +54,10 @@ def log_step(
     )
 
 
-def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+def log_end(success: bool, steps: int, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
         flush=True,
     )
 
@@ -99,14 +99,11 @@ def ensure_server_running() -> None:
 
 
 def make_client():
-    api_base_url = os.environ.get(
-        "API_BASE_URL", "https://api-inference.huggingface.co/v1"
-    ).strip()
-    model_name = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct").strip()
-    # Accept HF_TOKEN (primary) or OPENAI_API_KEY (fallback per spec)
+    api_base_url = os.getenv("API_BASE_URL", "https://api-inference.huggingface.co/v1").strip()
+    model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct").strip()
     api_key = (
-        os.environ.get("HF_TOKEN", "").strip()
-        or os.environ.get("OPENAI_API_KEY", "").strip()
+        os.getenv("HF_TOKEN", "").strip()
+        or os.getenv("OPENAI_API_KEY", "").strip()
     )
     if not api_key:
         raise RuntimeError("Missing API key — set HF_TOKEN or OPENAI_API_KEY")
@@ -318,7 +315,7 @@ def run_task(task_id: str, client: OpenAI, model_name: str) -> Dict:
 
     success = final_score >= SUCCESS_THRESHOLD
 
-    log_end(success=success, steps=step_num, score=final_score, rewards=rewards)
+    log_end(success=success, steps=step_num, rewards=rewards)
 
     return {
         "task_id": task_id,
@@ -353,7 +350,7 @@ def main():
             print(f"[ERROR] task={task_id} error={e}", flush=True)
             traceback.print_exc(file=sys.stdout)
             # Always emit [END] even on exception
-            log_end(success=False, steps=0, score=0.0, rewards=[])
+            log_end(success=False, steps=0, rewards=[])
 
     avg = (
         sum(r["grader_score"] for r in all_results) / len(all_results)

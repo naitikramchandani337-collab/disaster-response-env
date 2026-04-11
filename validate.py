@@ -283,10 +283,9 @@ def test_inference_format():
             in src,
             "[STEP] step= action= reward= done= error=": "[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}"
             in src,
-            "[END] success= steps= score= rewards=": "[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}"
+            "[END] success= steps= rewards= (no score=)": "[END] success={str(success).lower()} steps={steps} rewards={rewards_str}"
             in src,
             "reward is 2dp": "reward:.2f" in src,
-            "score is 2dp": "score:.2f" in src,
             "done is lowercase bool": "str(done).lower()" in src,
             "success is lowercase bool": "str(success).lower()" in src,
             "rewards is comma list": '",".join(f"{r:.2f}" for r in rewards)' in src,
