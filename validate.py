@@ -283,7 +283,7 @@ def test_inference_format():
             in src,
             "[STEP] step= action= reward= done= error=": "[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}"
             in src,
-            "[END] success= steps= rewards= (no score=)": "[END] success={str(success).lower()} steps={steps} rewards={rewards_str}"
+            "[END] success= steps= score= rewards=": "[END] success={str(success).lower()} steps={steps} score={score:.4f} rewards={rewards_str}"
             in src,
             "reward is 2dp": "reward:.2f" in src,
             "done is lowercase bool": "str(done).lower()" in src,

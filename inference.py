@@ -5,7 +5,7 @@ inference.py — Baseline inference script for Disaster Response OpenEnv
 Mandatory stdout format (must match exactly):
   [START] task=<task_name> env=<benchmark> model=<model_name>
   [STEP]  step=<n> action=<action_str> reward=<0.00> done=<true|false> error=<msg|null>
-  [END]   success=<true|false> steps=<n> rewards=<r1,r2,...,rn>
+  [END]   success=<true|false> steps=<n> score=<0.0000> rewards=<r1,r2,...,rn>
 
 Reads: API_BASE_URL, MODEL_NAME, HF_TOKEN (also accepts OPENAI_API_KEY)
 """
@@ -54,10 +54,12 @@ def log_step(
     )
 
 
-def log_end(success: bool, steps: int, rewards: List[float]) -> None:
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    # score clamped strictly in (0,1)
+    score = max(0.001, min(0.999, score))
     print(
-        f"[END] success={str(success).lower()} steps={steps} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} score={score:.4f} rewards={rewards_str}",
         flush=True,
     )
 
@@ -148,7 +150,9 @@ def env_step(session_id: str, action: Dict, retries: int = 3) -> Dict:
 def env_grade(session_id: str) -> float:
     r = requests.get(f"{BASE}/grade/{session_id}", timeout=10)
     r.raise_for_status()
-    return r.json().get("grader_score", 0.0)
+    score = r.json().get("grader_score", 0.001)
+    # Ensure strictly in (0, 1) — validator requirement
+    return max(0.001, min(0.999, float(score)))
 
 
 # ── Agent ──────────────────────────────────────────────────────────────────────
@@ -311,11 +315,11 @@ def run_task(task_id: str, client: OpenAI, model_name: str) -> Dict:
     try:
         final_score = env_grade(session_id)
     except Exception:
-        final_score = 0.0
+        final_score = 0.001  # never exactly 0.0
 
     success = final_score >= SUCCESS_THRESHOLD
 
-    log_end(success=success, steps=step_num, rewards=rewards)
+    log_end(success=success, steps=step_num, score=final_score, rewards=rewards)
 
     return {
         "task_id": task_id,
@@ -350,7 +354,7 @@ def main():
             print(f"[ERROR] task={task_id} error={e}", flush=True)
             traceback.print_exc(file=sys.stdout)
             # Always emit [END] even on exception
-            log_end(success=False, steps=0, rewards=[])
+            log_end(success=False, steps=0, score=0.001, rewards=[])
 
     avg = (
         sum(r["grader_score"] for r in all_results) / len(all_results)
