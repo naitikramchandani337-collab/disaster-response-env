@@ -42,6 +42,23 @@ class StepRequest(BaseModel):
     action: Dict[str, Any]
 
 
+@app.get("/")
+def root():
+    return {
+        "name": "Disaster Response OpenEnv",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs",
+            "tasks": "/tasks",
+            "reset": "/reset",
+            "step": "/step",
+        },
+        "repository": "https://github.com/naitikramchandani337-collab/disaster-response-env",
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "healthy", "env": "disaster-response-openenv", "version": "1.0.0"}

@@ -373,7 +373,7 @@ class DisasterResponseEnv:
 
     def _get_grader_score(self) -> float:
         # BUG 3 fix — pass snapshot, not live reference
-        return grade_task(
+        raw = grade_task(
             self.task_id,
             {
                 "zones": copy.deepcopy(self._zones),
@@ -381,6 +381,8 @@ class DisasterResponseEnv:
                 "resources_total": self._resources_total,
             },
         )
+        # Strictly (0, 1) — validator requirement
+        return max(0.001, min(0.999, raw))
 
     def _build_observation(self) -> Observation:
         # BUG 4 fix — use snapshotted original injured counts keyed by zone_id
@@ -413,6 +415,8 @@ class DisasterResponseEnv:
 
     def _build_info(self) -> EpisodeInfo:
         score = self._get_grader_score()
+        # Clamp strictly within (0, 1) — validator requirement
+        score = max(0.001, min(0.999, score))
         rescued = sum(z.rescued for z in self._zones)
         grade = (
             "A"
