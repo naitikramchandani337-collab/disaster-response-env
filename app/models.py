@@ -111,7 +111,7 @@ class Reward(BaseModel):
 class EpisodeInfo(BaseModel):
     task_id: str
     steps_taken: int
-    final_score: float = Field(..., ge=0.0, le=1.0)  # MINOR 11 fix
+    final_score: float = Field(..., gt=0.0, lt=1.0)  # strictly between 0 and 1
     total_rescued: int
     total_fatalities: int
     efficiency: float

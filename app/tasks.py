@@ -375,4 +375,5 @@ def grade_task(task_id: str, env_state: Dict[str, Any]) -> float:
             + 0.10 * evacuation_score
         )
 
-    return round(max(0.0, min(1.0, score)), 4)
+    # Clamp strictly within (0, 1) — validator requires score > 0 and score < 1
+    return round(max(0.001, min(0.999, score)), 4)
